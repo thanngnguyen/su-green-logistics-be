@@ -9,10 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  DriversService,
-  StoresService,
-} from './entities.service';
+import { DriversService, StoresService } from './entities.service';
 import { AuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
