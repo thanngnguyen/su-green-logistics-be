@@ -8,9 +8,19 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   // Enable CORS
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://greentransports.vercel.app',
+  ];
+
   app.enableCors({
-    origin:
-      configService.get<string>('app.frontendUrl') || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 
@@ -24,15 +34,15 @@ async function bootstrap() {
   );
 
   // API prefix
-  const apiPrefix = configService.get<string>('app.apiPrefix') || 'api';
-  const apiVersion = configService.get<string>('app.apiVersion') || 'v1';
+  const apiPrefix = configService.get('app.apiPrefix') || 'api';
+  const apiVersion = configService.get('app.apiVersion') || 'v1';
   app.setGlobalPrefix(`${apiPrefix}/${apiVersion}`);
 
-  const port = configService.get<number>('app.port') || 3001;
+  const port = process.env.PORT || 3001;
   await app.listen(port);
 
   console.log(
-    `🚀 Green Logistics API is running on: http://localhost:${port}/${apiPrefix}/${apiVersion}`,
+    `🚀 Green Logistics API running on port ${port} | /${apiPrefix}/${apiVersion}`,
   );
 }
 
