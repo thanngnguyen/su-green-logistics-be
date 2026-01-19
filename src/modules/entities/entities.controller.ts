@@ -10,7 +10,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
-  SuppliersService,
   DriversService,
   StoresService,
 } from './entities.service';
@@ -18,55 +17,7 @@ import { AuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
 
-// Suppliers Controller
-@Controller('suppliers')
-@UseGuards(AuthGuard)
-export class SuppliersController {
-  constructor(private readonly suppliersService: SuppliersService) {}
-
-  @Get()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async findAll(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-  ) {
-    return this.suppliersService.findAll({ page, limit, sortBy, sortOrder });
-  }
-
-  @Get('me')
-  async getMyProfile(@CurrentUser() user: any) {
-    return this.suppliersService.findByUserId(user.id);
-  }
-
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.suppliersService.findOne(id);
-  }
-
-  @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async create(@Body() data: any) {
-    return this.suppliersService.create(data);
-  }
-
-  @Put(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPPLIER)
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.suppliersService.update(id, data);
-  }
-
-  @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async delete(@Param('id') id: string) {
-    return this.suppliersService.delete(id);
-  }
-}
+// ...existing code...
 
 // Drivers Controller
 @Controller('drivers')

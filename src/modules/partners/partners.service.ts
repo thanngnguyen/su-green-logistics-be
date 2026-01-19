@@ -68,7 +68,8 @@ export class PartnersService {
     }
 
     const limit = options?.limit;
-    const offset = options?.page && limit ? (options.page - 1) * limit : undefined;
+    const offset =
+      options?.page && limit ? (options.page - 1) * limit : undefined;
 
     const partners = await this.supabaseService.findAll<Partner>('partners', {
       filter,

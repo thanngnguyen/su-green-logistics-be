@@ -19,7 +19,9 @@ import { CurrentUser } from '../../common/decorators';
 
 @Controller('partner-requests')
 export class PartnerRequestsController {
-  constructor(private readonly partnerRequestsService: PartnerRequestsService) {}
+  constructor(
+    private readonly partnerRequestsService: PartnerRequestsService,
+  ) {}
 
   /**
    * PUBLIC: Gửi đăng ký hợp tác

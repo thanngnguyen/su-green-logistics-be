@@ -64,7 +64,8 @@ export class AuthService {
     return {
       user,
       temporary_password: tempPassword,
-      message: 'Tài khoản tài xế đã được tạo thành công. Vui lòng gửi mật khẩu tạm thời cho người dùng.',
+      message:
+        'Tài khoản tài xế đã được tạo thành công. Vui lòng gửi mật khẩu tạm thời cho người dùng.',
     };
   }
 

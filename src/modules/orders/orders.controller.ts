@@ -32,7 +32,6 @@ export class OrdersController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
-    @Query('supplier_id') supplier_id?: string,
     @Query('driver_id') driver_id?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
@@ -41,7 +40,6 @@ export class OrdersController {
       page,
       limit,
       status,
-      supplier_id,
       driver_id,
       sortBy,
       sortOrder,
@@ -61,21 +59,16 @@ export class OrdersController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    if (user.role === 'supplier') {
-      return this.ordersService.getOrdersBySupplier(user.supplier_id, {
-        page,
-        limit,
-      });
-    } else if (user.role === 'driver') {
-      return this.ordersService.getOrdersByDriver(user.driver_id, {
-        page,
-        limit,
-      });
-    }
-    return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+    // Only driver role supported now
+    return this.ordersService.getOrdersByDriver(user.driver_id, {
+      page,
+      limit,
+    });
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
   async findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
   }
@@ -88,13 +81,6 @@ export class OrdersController {
   @Get(':id/tracking')
   async getTracking(@Param('id') id: string) {
     return this.ordersService.getTracking(id);
-  }
-
-  @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPPLIER)
-  async create(@Body() createOrderDto: CreateOrderDto) {
-    return this.ordersService.create(createOrderDto);
   }
 
   @Put(':id')
