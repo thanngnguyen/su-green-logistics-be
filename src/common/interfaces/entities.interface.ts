@@ -5,18 +5,16 @@ export interface BaseEntity {
 }
 
 export interface User extends BaseEntity {
-  email: string;
-  password_hash: string;
   full_name: string;
   phone?: string;
   avatar_url?: string;
-  role: 'admin' | 'supplier' | 'driver';
+  role: 'admin' | 'partner' | 'driver';
   status: 'active' | 'inactive' | 'pending' | 'suspended';
   address?: string;
 }
 
-export interface Supplier extends BaseEntity {
-  user_id: string;
+export interface Partner extends BaseEntity {
+  user_id?: string;
   company_name: string;
   business_license?: string;
   tax_code?: string;
@@ -27,6 +25,7 @@ export interface Supplier extends BaseEntity {
   buffer_zone_address?: string;
   buffer_zone_lat?: number;
   buffer_zone_lng?: number;
+  status: 'active' | 'inactive' | 'pending';
   user?: User;
 }
 
@@ -92,63 +91,41 @@ export interface BufferZone extends BaseEntity {
   green_zone?: GreenZone;
 }
 
-export interface ChargingStation extends BaseEntity {
+export interface Depot extends BaseEntity {
   name: string;
+  code?: string;
   address: string;
   lat: number;
   lng: number;
-  total_chargers: number;
-  available_chargers: number;
-  charger_power?: number;
-  price_per_kwh?: number;
-  status: 'available' | 'occupied' | 'maintenance' | 'offline';
+  manager_name?: string;
+  manager_phone?: string;
+  total_parking_slots: number;
+  total_charging_ports: number;
   operating_hours?: any;
-  amenities?: any;
-  green_zone_id?: string;
   is_active: boolean;
 }
 
-export interface Store extends BaseEntity {
-  name: string;
-  owner_name?: string;
-  phone?: string;
-  email?: string;
-  address: string;
-  lat?: number;
-  lng?: number;
-  green_zone_id?: string;
-  operating_hours?: any;
-  delivery_instructions?: string;
+export interface ChargingPort extends BaseEntity {
+  depot_id: string;
+  port_number: number;
+  port_code?: string;
+  charger_power: number;
+  charger_type: string;
+  status: 'available' | 'in_use' | 'maintenance' | 'offline';
+  current_vehicle_id?: string;
+  last_maintenance_date?: Date;
+  notes?: string;
   is_active: boolean;
-}
-
-export interface Pricing extends BaseEntity {
-  name: string;
-  description?: string;
-  base_price: number;
-  price_per_km: number;
-  price_per_kg: number;
-  price_per_m3: number;
-  min_distance: number;
-  max_distance?: number;
-  min_weight: number;
-  max_weight?: number;
-  surge_multiplier: number;
-  green_zone_surcharge: number;
-  is_active: boolean;
-  valid_from?: Date;
-  valid_to?: Date;
+  depot?: Depot;
 }
 
 export interface Order extends BaseEntity {
   order_code: string;
-  supplier_id: string;
+  partner_id?: string;
   driver_id?: string;
   vehicle_id?: string;
-  store_id: string;
   buffer_zone_id?: string;
   green_zone_id?: string;
-  pricing_id?: string;
   description?: string;
   weight?: number;
   volume?: number;
@@ -165,12 +142,6 @@ export interface Order extends BaseEntity {
   estimated_delivery_time?: Date;
   actual_delivery_time?: Date;
   distance?: number;
-  base_price?: number;
-  distance_price?: number;
-  weight_price?: number;
-  surge_price?: number;
-  green_zone_fee?: number;
-  total_price?: number;
   status:
     | 'pending'
     | 'confirmed'
@@ -178,7 +149,6 @@ export interface Order extends BaseEntity {
     | 'in_transit'
     | 'delivered'
     | 'cancelled';
-  payment_status: string;
   current_lat?: number;
   current_lng?: number;
   tracking_history?: any;
@@ -186,10 +156,10 @@ export interface Order extends BaseEntity {
   delivery_signature?: string;
   pickup_photo_url?: string;
   delivery_photo_url?: string;
-  supplier?: Supplier;
+  created_by?: string;
+  partner?: Partner;
   driver?: Driver;
   vehicle?: Vehicle;
-  store?: Store;
 }
 
 export interface OrderTracking extends BaseEntity {
@@ -203,14 +173,17 @@ export interface OrderTracking extends BaseEntity {
 export interface ChargingSession extends BaseEntity {
   vehicle_id: string;
   driver_id: string;
-  charging_station_id: string;
+  depot_id: string;
+  charging_port_id: string;
+  port_number?: number;
   start_time: Date;
   end_time?: Date;
   start_battery_level?: number;
   end_battery_level?: number;
   energy_consumed?: number;
-  total_cost?: number;
   status: string;
+  depot?: Depot;
+  charging_port?: ChargingPort;
 }
 
 export interface Report extends BaseEntity {
@@ -226,19 +199,6 @@ export interface Report extends BaseEntity {
   resolved_by?: string;
   resolved_at?: Date;
   attachments?: any;
-}
-
-export interface Revenue extends BaseEntity {
-  order_id: string;
-  supplier_id: string;
-  driver_id?: string;
-  amount: number;
-  platform_fee?: number;
-  driver_earning?: number;
-  payment_method?: string;
-  payment_reference?: string;
-  status: string;
-  paid_at?: Date;
 }
 
 export interface Notification extends BaseEntity {

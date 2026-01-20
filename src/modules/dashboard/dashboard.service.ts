@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../../common/supabase';
-import {
-  DashboardStats,
-  SupplierDashboardStats,
-  DriverDashboardStats,
-} from '../../common/interfaces';
-import { Revenue, Notification } from '../../common/interfaces';
+import { DashboardStats, DriverDashboardStats } from '../../common/interfaces';
+import { Notification } from '../../common/interfaces';
 
 @Injectable()
 export class DashboardService {
@@ -28,33 +24,11 @@ export class DashboardService {
       available_drivers: 0,
       total_vehicles: 0,
       available_vehicles: 0,
-      total_suppliers: 0,
-      total_revenue: 0,
-      today_revenue: 0,
-      this_month_revenue: 0,
-    };
-  }
-
-  async getSupplierDashboardStats(
-    supplierId: string,
-  ): Promise<SupplierDashboardStats> {
-    const result = await this.supabaseService.rpc<SupplierDashboardStats[]>(
-      'get_supplier_dashboard_stats',
-      {
-        p_supplier_id: supplierId,
-      },
-    );
-    if (result && Array.isArray(result) && result.length > 0) {
-      return result[0];
-    }
-    return {
-      total_orders: 0,
-      pending_orders: 0,
-      in_transit_orders: 0,
-      delivered_orders: 0,
-      total_spent: 0,
-      this_month_orders: 0,
-      this_month_spent: 0,
+      total_partners: 0,
+      pending_partner_requests: 0,
+      total_depots: 0,
+      total_charging_ports: 0,
+      available_charging_ports: 0,
     };
   }
 
@@ -73,47 +47,13 @@ export class DashboardService {
     return {
       total_deliveries: 0,
       today_deliveries: 0,
+      this_month_deliveries: 0,
       pending_orders: 0,
       in_transit_orders: 0,
-      total_earnings: 0,
-      today_earnings: 0,
-      this_month_earnings: 0,
+      daily_kpi_target: 3,
+      kpi_completed_today: false,
       average_rating: 5.0,
     };
-  }
-
-  async getRevenueReport(params?: {
-    from_date?: string;
-    to_date?: string;
-    group_by?: 'day' | 'week' | 'month';
-  }): Promise<any[]> {
-    const revenues = await this.supabaseService.findAll<Revenue>('revenue', {
-      filter: { status: 'paid' },
-      orderBy: { column: 'paid_at', ascending: true },
-    });
-
-    // Group revenue by date
-    const grouped: Record<string, number> = {};
-    revenues.forEach((rev) => {
-      if (rev.paid_at) {
-        const date = new Date(rev.paid_at);
-        let key: string;
-        switch (params?.group_by) {
-          case 'week':
-            const week = Math.ceil(date.getDate() / 7);
-            key = `${date.getFullYear()}-W${week}`;
-            break;
-          case 'month':
-            key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            break;
-          default:
-            key = date.toISOString().split('T')[0];
-        }
-        grouped[key] = (grouped[key] || 0) + rev.amount;
-      }
-    });
-
-    return Object.entries(grouped).map(([date, amount]) => ({ date, amount }));
   }
 
   async getOrdersReport(params?: {

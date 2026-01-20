@@ -52,16 +52,16 @@ export class AuthController {
   }
 
   /**
-   * Đổi mật khẩu lần đầu
-   * POST /auth/change-password-first-time
+   * Đổi mật khẩu
+   * POST /auth/change-password
    */
-  @Post('change-password-first-time')
+  @Post('change-password')
   @UseGuards(AuthGuard)
-  async changePasswordFirstTime(
+  async changePassword(
     @CurrentUser() user: any,
     @Body() changePasswordDto: { old_password: string; new_password: string },
   ) {
-    return this.authService.changePasswordFirstTime(
+    return this.authService.changePassword(
       user.id,
       changePasswordDto.old_password,
       changePasswordDto.new_password,

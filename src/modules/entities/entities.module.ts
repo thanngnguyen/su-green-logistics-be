@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { DriversController, StoresController } from './entities.controller';
-import { DriversService, StoresService } from './entities.service';
+import { DriversController } from './entities.controller';
+import { DriversService } from './entities.service';
 
 @Module({
-  controllers: [DriversController, StoresController],
-  providers: [DriversService, StoresService],
-  exports: [DriversService, StoresService],
+  controllers: [DriversController],
+  providers: [DriversService],
+  exports: [DriversService],
 })
 export class EntitiesModule {}

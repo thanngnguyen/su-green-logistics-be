@@ -14,10 +14,10 @@ import { AuthModule } from './modules/auth';
 import { UsersModule } from './modules/users';
 import { OrdersModule } from './modules/orders';
 import { VehiclesModule } from './modules/vehicles';
+import { DriversModule } from './modules/drivers';
 import { ChargingStationsModule } from './modules/charging-stations';
 import { GreenZonesModule } from './modules/green-zones';
 import { EntitiesModule } from './modules/entities';
-import { PricingModule } from './modules/pricing';
 import { ReportsModule } from './modules/reports';
 import { DashboardModule } from './modules/dashboard';
 import { PartnersModule } from './modules/partners';
@@ -34,10 +34,10 @@ import { PartnerRequestsModule } from './modules/partner-requests';
     UsersModule,
     OrdersModule,
     VehiclesModule,
+    DriversModule,
     ChargingStationsModule,
     GreenZonesModule,
     EntitiesModule,
-    PricingModule,
     ReportsModule,
     DashboardModule,
     PartnersModule,

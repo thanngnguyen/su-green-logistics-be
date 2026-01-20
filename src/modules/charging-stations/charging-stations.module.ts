@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ChargingStationsController } from './charging-stations.controller';
-import { ChargingStationsService } from './charging-stations.service';
+import {
+  DepotsController,
+  ChargingController,
+} from './charging-stations.controller';
+import { DepotsService } from './charging-stations.service';
 
 @Module({
-  controllers: [ChargingStationsController],
-  providers: [ChargingStationsService],
-  exports: [ChargingStationsService],
+  controllers: [DepotsController, ChargingController],
+  providers: [DepotsService],
+  exports: [DepotsService],
 })
 export class ChargingStationsModule {}

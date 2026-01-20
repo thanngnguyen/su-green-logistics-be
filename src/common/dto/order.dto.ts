@@ -9,11 +9,9 @@ import {
 import { OrderStatus } from '../enums';
 
 export class CreateOrderDto {
+  @IsOptional()
   @IsString()
-  supplier_id: string;
-
-  @IsString()
-  store_id: string;
+  partner_id?: string;
 
   @IsOptional()
   @IsString()
@@ -22,10 +20,6 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   green_zone_id?: string;
-
-  @IsOptional()
-  @IsString()
-  pricing_id?: string;
 
   @IsOptional()
   @IsString()

@@ -32,21 +32,6 @@ export class DashboardController {
     return this.dashboardService.getDriverDashboardStats(user.driver_id);
   }
 
-  @Get('revenue-report')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async getRevenueReport(
-    @Query('from_date') from_date?: string,
-    @Query('to_date') to_date?: string,
-    @Query('group_by') group_by?: 'day' | 'week' | 'month',
-  ) {
-    return this.dashboardService.getRevenueReport({
-      from_date,
-      to_date,
-      group_by,
-    });
-  }
-
   @Get('orders-report')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)

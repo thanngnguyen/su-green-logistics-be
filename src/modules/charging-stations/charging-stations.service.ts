@@ -1,32 +1,30 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { SupabaseService } from '../../common/supabase';
 import {
-  CreateChargingStationDto,
-  UpdateChargingStationDto,
-  StartChargingSessionDto,
-  EndChargingSessionDto,
-} from '../../common/dto';
-import { ChargingStation, ChargingSession } from '../../common/interfaces';
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { SupabaseService } from '../../common/supabase';
+import { Depot, ChargingPort, ChargingSession } from '../../common/interfaces';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces';
 
 @Injectable()
-export class ChargingStationsService {
+export class DepotsService {
   constructor(private supabaseService: SupabaseService) {}
 
-  async findAll(
-    params?: PaginationParams & { status?: string; green_zone_id?: string },
-  ): Promise<PaginatedResponse<ChargingStation>> {
+  // =============================================
+  // DEPOTS (BẾN XE)
+  // =============================================
+
+  async findAllDepots(
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Depot>> {
     const page = params?.page || 1;
     const limit = params?.limit || 10;
     const offset = (page - 1) * limit;
 
-    const filter: Record<string, any> = {};
-    if (params?.status) filter.status = params.status;
-    if (params?.green_zone_id) filter.green_zone_id = params.green_zone_id;
-
-    const [stations, total] = await Promise.all([
-      this.supabaseService.findAll<ChargingStation>('charging_stations', {
-        filter,
+    const [depots, total] = await Promise.all([
+      this.supabaseService.findAll<Depot>('depots', {
+        filter: { is_active: true },
         orderBy: {
           column: params?.sortBy || 'name',
           ascending: params?.sortOrder !== 'desc',
@@ -34,11 +32,11 @@ export class ChargingStationsService {
         limit,
         offset,
       }),
-      this.supabaseService.count('charging_stations', filter),
+      this.supabaseService.count('depots', { is_active: true }),
     ]);
 
     return {
-      data: stations,
+      data: depots,
       meta: {
         total,
         page,
@@ -48,82 +46,123 @@ export class ChargingStationsService {
     };
   }
 
-  async findOne(id: string): Promise<ChargingStation> {
-    const station = await this.supabaseService.findOne<ChargingStation>(
-      'charging_stations',
-      id,
-    );
-    if (!station) {
-      throw new NotFoundException('Charging station not found');
+  async findDepotById(id: string): Promise<Depot> {
+    const depot = await this.supabaseService.findOne<Depot>('depots', id);
+    if (!depot) {
+      throw new NotFoundException('Bến xe không tồn tại');
     }
-    return station;
+    return depot;
   }
 
-  async create(createDto: CreateChargingStationDto): Promise<ChargingStation> {
-    return this.supabaseService.create<ChargingStation>('charging_stations', {
-      ...createDto,
-      available_chargers: createDto.total_chargers || 1,
+  async createDepot(data: Partial<Depot>): Promise<Depot> {
+    return this.supabaseService.create<Depot>('depots', {
+      ...data,
+      is_active: true,
+    });
+  }
+
+  async updateDepot(id: string, data: Partial<Depot>): Promise<Depot> {
+    return this.supabaseService.update<Depot>('depots', id, data);
+  }
+
+  async deleteDepot(id: string): Promise<void> {
+    await this.supabaseService.delete('depots', id);
+  }
+
+  // =============================================
+  // CHARGING PORTS (TRỤ SẠC)
+  // =============================================
+
+  async findPortsByDepot(depotId: string): Promise<ChargingPort[]> {
+    return this.supabaseService.findAll<ChargingPort>('charging_ports', {
+      filter: { depot_id: depotId, is_active: true },
+      orderBy: { column: 'port_number', ascending: true },
+    });
+  }
+
+  async findAvailablePorts(depotId: string): Promise<ChargingPort[]> {
+    return this.supabaseService.findAll<ChargingPort>('charging_ports', {
+      filter: { depot_id: depotId, status: 'available', is_active: true },
+      orderBy: { column: 'port_number', ascending: true },
+    });
+  }
+
+  async findPortById(id: string): Promise<ChargingPort> {
+    const port = await this.supabaseService.findOne<ChargingPort>(
+      'charging_ports',
+      id,
+    );
+    if (!port) {
+      throw new NotFoundException('Trụ sạc không tồn tại');
+    }
+    return port;
+  }
+
+  async createPort(data: Partial<ChargingPort>): Promise<ChargingPort> {
+    return this.supabaseService.create<ChargingPort>('charging_ports', {
+      ...data,
       status: 'available',
       is_active: true,
     });
   }
 
-  async update(
+  async updatePort(
     id: string,
-    updateDto: UpdateChargingStationDto,
-  ): Promise<ChargingStation> {
-    return this.supabaseService.update<ChargingStation>(
-      'charging_stations',
+    data: Partial<ChargingPort>,
+  ): Promise<ChargingPort> {
+    return this.supabaseService.update<ChargingPort>(
+      'charging_ports',
       id,
-      updateDto,
+      data,
     );
   }
 
-  async delete(id: string): Promise<void> {
-    await this.supabaseService.delete('charging_stations', id);
+  async deletePort(id: string): Promise<void> {
+    await this.supabaseService.delete('charging_ports', id);
   }
 
-  async findAvailable(
-    lat: number,
-    lng: number,
-    radiusKm: number = 5,
-  ): Promise<ChargingStation[]> {
-    return this.supabaseService.rpc<ChargingStation[]>(
-      'find_available_charging_stations',
-      {
-        p_lat: lat,
-        p_lng: lng,
-        p_radius_km: radiusKm,
-      },
-    );
-  }
+  // =============================================
+  // CHARGING SESSIONS (PHIÊN SẠC)
+  // =============================================
 
-  async startChargingSession(
-    dto: StartChargingSessionDto,
-  ): Promise<ChargingSession> {
-    // Create charging session
+  async startChargingSession(data: {
+    vehicle_id: string;
+    driver_id: string;
+    depot_id: string;
+    charging_port_id: string;
+    start_battery_level?: number;
+  }): Promise<ChargingSession> {
+    // Kiểm tra trụ sạc có đang trống không
+    const port = await this.findPortById(data.charging_port_id);
+    if (port.status !== 'available') {
+      throw new BadRequestException(
+        `Trụ sạc số ${port.port_number} đang không khả dụng`,
+      );
+    }
+
+    // Tạo phiên sạc
     const session = await this.supabaseService.create<ChargingSession>(
       'charging_sessions',
       {
-        ...dto,
+        ...data,
+        port_number: port.port_number,
         start_time: new Date(),
         status: 'in_progress',
       },
     );
 
-    // Update charging station available chargers
-    const station = await this.findOne(dto.charging_station_id);
-    await this.supabaseService.update<ChargingStation>(
-      'charging_stations',
-      dto.charging_station_id,
+    // Cập nhật trạng thái trụ sạc
+    await this.supabaseService.update<ChargingPort>(
+      'charging_ports',
+      data.charging_port_id,
       {
-        available_chargers: Math.max(0, station.available_chargers - 1),
-        status: station.available_chargers <= 1 ? 'occupied' : 'available',
+        status: 'in_use',
+        current_vehicle_id: data.vehicle_id,
       },
     );
 
-    // Update vehicle status
-    await this.supabaseService.update('vehicles', dto.vehicle_id, {
+    // Cập nhật trạng thái xe
+    await this.supabaseService.update('vehicles', data.vehicle_id, {
       status: 'charging',
     });
 
@@ -132,44 +171,45 @@ export class ChargingStationsService {
 
   async endChargingSession(
     sessionId: string,
-    dto: EndChargingSessionDto,
+    data: {
+      end_battery_level?: number;
+      energy_consumed?: number;
+    },
   ): Promise<ChargingSession> {
     const session = await this.supabaseService.findOne<ChargingSession>(
       'charging_sessions',
       sessionId,
     );
     if (!session) {
-      throw new NotFoundException('Charging session not found');
+      throw new NotFoundException('Phiên sạc không tồn tại');
     }
 
-    // Update charging session
+    // Cập nhật phiên sạc
     const updatedSession = await this.supabaseService.update<ChargingSession>(
       'charging_sessions',
       sessionId,
       {
         end_time: new Date(),
-        end_battery_level: dto.end_battery_level,
-        energy_consumed: dto.energy_consumed,
-        total_cost: dto.total_cost,
+        end_battery_level: data.end_battery_level,
+        energy_consumed: data.energy_consumed,
         status: 'completed',
       },
     );
 
-    // Update charging station
-    const station = await this.findOne(session.charging_station_id);
-    await this.supabaseService.update<ChargingStation>(
-      'charging_stations',
-      session.charging_station_id,
+    // Giải phóng trụ sạc
+    await this.supabaseService.update<ChargingPort>(
+      'charging_ports',
+      session.charging_port_id,
       {
-        available_chargers: station.available_chargers + 1,
         status: 'available',
+        current_vehicle_id: undefined,
       },
     );
 
-    // Update vehicle
+    // Cập nhật trạng thái xe
     await this.supabaseService.update('vehicles', session.vehicle_id, {
       status: 'available',
-      current_battery_level: dto.end_battery_level,
+      current_battery_level: data.end_battery_level,
     });
 
     return updatedSession;
@@ -178,16 +218,57 @@ export class ChargingStationsService {
   async getChargingSessions(params?: {
     vehicle_id?: string;
     driver_id?: string;
-    station_id?: string;
+    depot_id?: string;
+    port_id?: string;
   }): Promise<ChargingSession[]> {
     const filter: Record<string, any> = {};
     if (params?.vehicle_id) filter.vehicle_id = params.vehicle_id;
     if (params?.driver_id) filter.driver_id = params.driver_id;
-    if (params?.station_id) filter.charging_station_id = params.station_id;
+    if (params?.depot_id) filter.depot_id = params.depot_id;
+    if (params?.port_id) filter.charging_port_id = params.port_id;
 
     return this.supabaseService.findAll<ChargingSession>('charging_sessions', {
       filter,
       orderBy: { column: 'start_time', ascending: false },
     });
+  }
+
+  async getActiveSession(driverId: string): Promise<ChargingSession | null> {
+    const sessions = await this.supabaseService.findAll<ChargingSession>(
+      'charging_sessions',
+      {
+        filter: { driver_id: driverId, status: 'in_progress' },
+      },
+    );
+    return sessions[0] || null;
+  }
+
+  // =============================================
+  // DASHBOARD - Thống kê trụ sạc theo bến
+  // =============================================
+
+  async getDepotChargingStats(depotId: string): Promise<{
+    depot: Depot;
+    total_ports: number;
+    available_ports: number;
+    in_use_ports: number;
+    maintenance_ports: number;
+    offline_ports: number;
+    ports: ChargingPort[];
+  }> {
+    const depot = await this.findDepotById(depotId);
+    const ports = await this.findPortsByDepot(depotId);
+
+    const stats = {
+      depot,
+      total_ports: ports.length,
+      available_ports: ports.filter((p) => p.status === 'available').length,
+      in_use_ports: ports.filter((p) => p.status === 'in_use').length,
+      maintenance_ports: ports.filter((p) => p.status === 'maintenance').length,
+      offline_ports: ports.filter((p) => p.status === 'offline').length,
+      ports,
+    };
+
+    return stats;
   }
 }

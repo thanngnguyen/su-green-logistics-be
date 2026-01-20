@@ -9,108 +9,168 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ChargingStationsService } from './charging-stations.service';
-import {
-  CreateChargingStationDto,
-  UpdateChargingStationDto,
-  StartChargingSessionDto,
-  EndChargingSessionDto,
-} from '../../common/dto';
+import { DepotsService } from './charging-stations.service';
 import { AuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
 
-@Controller('charging-stations')
+// =============================================
+// DEPOTS CONTROLLER (BẾN XE)
+// =============================================
+
+@Controller('depots')
 @UseGuards(AuthGuard)
-export class ChargingStationsController {
-  constructor(
-    private readonly chargingStationsService: ChargingStationsService,
-  ) {}
+export class DepotsController {
+  constructor(private readonly depotsService: DepotsService) {}
 
   @Get()
-  async findAll(
+  async findAllDepots(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('status') status?: string,
-    @Query('green_zone_id') green_zone_id?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    return this.chargingStationsService.findAll({
+    return this.depotsService.findAllDepots({
       page,
       limit,
-      status,
-      green_zone_id,
       sortBy,
       sortOrder,
     });
   }
 
-  @Get('nearby')
-  async findNearby(
-    @Query('lat') lat: number,
-    @Query('lng') lng: number,
-    @Query('radius') radius?: number,
-  ) {
-    return this.chargingStationsService.findAvailable(lat, lng, radius || 5);
+  @Get(':id')
+  async findDepotById(@Param('id') id: string) {
+    return this.depotsService.findDepotById(id);
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.chargingStationsService.findOne(id);
+  @Get(':id/stats')
+  async getDepotStats(@Param('id') id: string) {
+    return this.depotsService.getDepotChargingStats(id);
   }
 
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async create(@Body() createDto: CreateChargingStationDto) {
-    return this.chargingStationsService.create(createDto);
+  async createDepot(@Body() data: any) {
+    return this.depotsService.createDepot(data);
   }
 
   @Put(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdateChargingStationDto,
-  ) {
-    return this.chargingStationsService.update(id, updateDto);
+  async updateDepot(@Param('id') id: string, @Body() data: any) {
+    return this.depotsService.updateDepot(id, data);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async delete(@Param('id') id: string) {
-    return this.chargingStationsService.delete(id);
+  async deleteDepot(@Param('id') id: string) {
+    return this.depotsService.deleteDepot(id);
   }
 
-  @Post('sessions/start')
+  // =============================================
+  // CHARGING PORTS (TRỤ SẠC TRONG BẾN)
+  // =============================================
+
+  @Get(':depotId/ports')
+  async findPortsByDepot(@Param('depotId') depotId: string) {
+    return this.depotsService.findPortsByDepot(depotId);
+  }
+
+  @Get(':depotId/ports/available')
+  async findAvailablePorts(@Param('depotId') depotId: string) {
+    return this.depotsService.findAvailablePorts(depotId);
+  }
+
+  @Post(':depotId/ports')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async createPort(@Param('depotId') depotId: string, @Body() data: any) {
+    return this.depotsService.createPort({ ...data, depot_id: depotId });
+  }
+
+  @Put('ports/:portId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updatePort(@Param('portId') portId: string, @Body() data: any) {
+    return this.depotsService.updatePort(portId, data);
+  }
+
+  @Delete('ports/:portId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async deletePort(@Param('portId') portId: string) {
+    return this.depotsService.deletePort(portId);
+  }
+}
+
+// =============================================
+// CHARGING SESSIONS CONTROLLER (PHIÊN SẠC)
+// =============================================
+
+@Controller('charging')
+@UseGuards(AuthGuard)
+export class ChargingController {
+  constructor(private readonly depotsService: DepotsService) {}
+
+  // Bắt đầu phiên sạc - Tài xế chọn trụ sạc để sạc
+  @Post('start')
   @UseGuards(RolesGuard)
   @Roles(UserRole.DRIVER)
-  async startChargingSession(@Body() dto: StartChargingSessionDto) {
-    return this.chargingStationsService.startChargingSession(dto);
+  async startChargingSession(
+    @CurrentUser() user: any,
+    @Body()
+    body: {
+      vehicle_id: string;
+      depot_id: string;
+      charging_port_id: string;
+      start_battery_level?: number;
+    },
+  ) {
+    // Lấy driver_id từ user hiện tại
+    return this.depotsService.startChargingSession({
+      ...body,
+      driver_id: user.driver_id || user.id,
+    });
   }
 
-  @Put('sessions/:id/end')
+  // Kết thúc phiên sạc
+  @Put('end/:sessionId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.DRIVER)
   async endChargingSession(
-    @Param('id') id: string,
-    @Body() dto: EndChargingSessionDto,
+    @Param('sessionId') sessionId: string,
+    @Body()
+    body: {
+      end_battery_level?: number;
+      energy_consumed?: number;
+    },
   ) {
-    return this.chargingStationsService.endChargingSession(id, dto);
+    return this.depotsService.endChargingSession(sessionId, body);
   }
 
-  @Get('sessions/history')
+  // Lấy phiên sạc đang hoạt động của tài xế
+  @Get('active')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async getActiveSession(@CurrentUser() user: any) {
+    return this.depotsService.getActiveSession(user.driver_id || user.id);
+  }
+
+  // Lịch sử sạc
+  @Get('sessions')
   async getChargingSessions(
     @Query('vehicle_id') vehicle_id?: string,
     @Query('driver_id') driver_id?: string,
-    @Query('station_id') station_id?: string,
+    @Query('depot_id') depot_id?: string,
+    @Query('port_id') port_id?: string,
   ) {
-    return this.chargingStationsService.getChargingSessions({
+    return this.depotsService.getChargingSessions({
       vehicle_id,
       driver_id,
-      station_id,
+      depot_id,
+      port_id,
     });
   }
 }

@@ -16,7 +16,7 @@ export class OrdersService {
   async findAll(
     params?: PaginationParams & {
       status?: string;
-      supplier_id?: string;
+      partner_id?: string;
       driver_id?: string;
       from_date?: string;
       to_date?: string;
@@ -28,13 +28,13 @@ export class OrdersService {
 
     const filter: Record<string, any> = {};
     if (params?.status) filter.status = params.status;
-    if (params?.supplier_id) filter.supplier_id = params.supplier_id;
+    if (params?.partner_id) filter.partner_id = params.partner_id;
     if (params?.driver_id) filter.driver_id = params.driver_id;
 
     const [orders, total] = await Promise.all([
       this.supabaseService.findAll<Order>('orders', {
         select:
-          '*, supplier:suppliers(*), driver:drivers(*), store:stores(*), vehicle:vehicles(*)',
+          '*, partner:partners(*), driver:drivers(*), vehicle:vehicles(*)',
         filter,
         orderBy: {
           column: params?.sortBy || 'created_at',
@@ -61,7 +61,7 @@ export class OrdersService {
     const order = await this.supabaseService.findOne<Order>(
       'orders',
       id,
-      '*, supplier:suppliers(*), driver:drivers(*), store:stores(*), vehicle:vehicles(*)',
+      '*, partner:partners(*), driver:drivers(*), vehicle:vehicles(*)',
     );
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -72,8 +72,7 @@ export class OrdersService {
   async findByCode(orderCode: string): Promise<Order> {
     const orders = await this.supabaseService.findAll<Order>('orders', {
       filter: { order_code: orderCode },
-      select:
-        '*, supplier:suppliers(*), driver:drivers(*), store:stores(*), vehicle:vehicles(*)',
+      select: '*, partner:partners(*), driver:drivers(*), vehicle:vehicles(*)',
     });
     if (orders.length === 0) {
       throw new NotFoundException('Order not found');
@@ -81,29 +80,14 @@ export class OrdersService {
     return orders[0];
   }
 
-  async create(createOrderDto: CreateOrderDto): Promise<Order> {
-    // Calculate price if pricing_id is provided
-    let priceData = {};
-    if (createOrderDto.pricing_id) {
-      const calculatedPrice = await this.supabaseService.rpc<any>(
-        'calculate_order_price',
-        {
-          p_distance: 10, // Will be calculated based on coordinates
-          p_weight: createOrderDto.weight || 0,
-          p_volume: createOrderDto.volume || 0,
-          p_pricing_id: createOrderDto.pricing_id,
-        },
-      );
-      if (calculatedPrice && calculatedPrice.length > 0) {
-        priceData = calculatedPrice[0];
-      }
-    }
-
+  async create(
+    createOrderDto: CreateOrderDto,
+    createdBy?: string,
+  ): Promise<Order> {
     return this.supabaseService.create<Order>('orders', {
       ...createOrderDto,
-      ...priceData,
       status: 'pending',
-      payment_status: 'pending',
+      created_by: createdBy,
     });
   }
 
@@ -165,13 +149,6 @@ export class OrdersService {
     });
   }
 
-  async getOrdersBySupplier(
-    supplierId: string,
-    params?: PaginationParams,
-  ): Promise<PaginatedResponse<Order>> {
-    return this.findAll({ ...params, supplier_id: supplierId });
-  }
-
   async getOrdersByDriver(
     driverId: string,
     params?: PaginationParams,
@@ -179,11 +156,77 @@ export class OrdersService {
     return this.findAll({ ...params, driver_id: driverId });
   }
 
+  async getOrdersByPartner(
+    partnerId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Order>> {
+    return this.findAll({ ...params, partner_id: partnerId });
+  }
+
   async getPendingOrders(): Promise<Order[]> {
     return this.supabaseService.findAll<Order>('orders', {
       filter: { status: 'pending' },
-      select: '*, supplier:suppliers(*), store:stores(*)',
+      select: '*, partner:partners(*)',
       orderBy: { column: 'created_at', ascending: true },
     });
+  }
+
+  /**
+   * Tài xế check-in khi lấy hàng hoặc giao hàng xong
+   */
+  async driverCheckin(
+    orderId: string,
+    driverId: string,
+    checkinType: 'pickup' | 'delivery',
+    checkinData: {
+      photo_url?: string;
+      signature?: string;
+      receiver_name?: string;
+      note?: string;
+      lat?: number;
+      lng?: number;
+    },
+  ): Promise<any> {
+    // Gọi function trong database để xử lý check-in và cập nhật KPI
+    const result = await this.supabaseService.rpc<any>(
+      'driver_delivery_checkin',
+      {
+        p_order_id: orderId,
+        p_driver_id: driverId,
+        p_checkin_type: checkinType,
+        p_photo_url: checkinData.photo_url || null,
+        p_signature: checkinData.signature || null,
+        p_receiver_name: checkinData.receiver_name || null,
+        p_note: checkinData.note || null,
+        p_lat: checkinData.lat || null,
+        p_lng: checkinData.lng || null,
+      },
+    );
+
+    return result;
+  }
+
+  /**
+   * Lấy thống kê KPI của một tài xế
+   */
+  async getDriverKpi(driverId: string): Promise<any> {
+    const result = await this.supabaseService.rpc<any>(
+      'get_driver_dashboard_stats',
+      { p_driver_id: driverId },
+    );
+
+    return result && result.length > 0 ? result[0] : null;
+  }
+
+  /**
+   * Admin xem thống kê KPI của tất cả tài xế
+   */
+  async getDriversKpiSummary(date?: string): Promise<any[]> {
+    const result = await this.supabaseService.rpc<any[]>(
+      'get_drivers_kpi_summary',
+      { p_date: date || new Date().toISOString().split('T')[0] },
+    );
+
+    return result || [];
   }
 }

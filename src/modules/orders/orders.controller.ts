@@ -25,6 +25,16 @@ import { UserRole } from '../../common/enums';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async create(
+    @Body() createOrderDto: CreateOrderDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.ordersService.create(createOrderDto, user.id);
+  }
+
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -111,6 +121,78 @@ export class OrdersController {
     @Body() updateStatusDto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatus(id, updateStatusDto);
+  }
+
+  /**
+   * DRIVER: Check-in khi lấy hàng tại điểm tập kết
+   */
+  @Post(':id/checkin/pickup')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async checkinPickup(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body()
+    checkinData: {
+      photo_url?: string;
+      note?: string;
+      lat?: number;
+      lng?: number;
+    },
+  ) {
+    return this.ordersService.driverCheckin(
+      id,
+      user.driver_id,
+      'pickup',
+      checkinData,
+    );
+  }
+
+  /**
+   * DRIVER: Check-in khi giao hàng xong tại cửa hàng
+   */
+  @Post(':id/checkin/delivery')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async checkinDelivery(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body()
+    checkinData: {
+      photo_url?: string;
+      signature?: string;
+      receiver_name?: string;
+      note?: string;
+      lat?: number;
+      lng?: number;
+    },
+  ) {
+    return this.ordersService.driverCheckin(
+      id,
+      user.driver_id,
+      'delivery',
+      checkinData,
+    );
+  }
+
+  /**
+   * DRIVER: Lấy thống kê KPI của mình
+   */
+  @Get('my-kpi')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async getMyKpi(@CurrentUser() user: any) {
+    return this.ordersService.getDriverKpi(user.driver_id);
+  }
+
+  /**
+   * ADMIN: Xem thống kê KPI của tất cả tài xế
+   */
+  @Get('admin/drivers-kpi')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getDriversKpiSummary(@Query('date') date?: string) {
+    return this.ordersService.getDriversKpiSummary(date);
   }
 
   @Delete(':id')

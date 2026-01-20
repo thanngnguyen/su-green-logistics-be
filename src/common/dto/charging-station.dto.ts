@@ -6,11 +6,18 @@ import {
   IsObject,
   IsEnum,
 } from 'class-validator';
-import { ChargingStationStatus } from '../enums';
 
-export class CreateChargingStationDto {
+// =============================================
+// DEPOT DTOs (BẾN XE)
+// =============================================
+
+export class CreateDepotDto {
   @IsString()
   name: string;
+
+  @IsOptional()
+  @IsString()
+  code?: string;
 
   @IsString()
   address: string;
@@ -22,65 +29,142 @@ export class CreateChargingStationDto {
   lng: number;
 
   @IsOptional()
-  @IsNumber()
-  total_chargers?: number;
+  @IsString()
+  manager_name?: string;
+
+  @IsOptional()
+  @IsString()
+  manager_phone?: string;
 
   @IsOptional()
   @IsNumber()
-  charger_power?: number;
+  total_parking_slots?: number;
 
   @IsOptional()
   @IsNumber()
-  price_per_kwh?: number;
+  total_charging_ports?: number;
 
   @IsOptional()
   @IsObject()
   operating_hours?: object;
-
-  @IsOptional()
-  @IsObject()
-  amenities?: object;
-
-  @IsOptional()
-  @IsString()
-  green_zone_id?: string;
 }
 
-export class UpdateChargingStationDto {
+export class UpdateDepotDto {
   @IsOptional()
   @IsString()
   name?: string;
 
   @IsOptional()
   @IsString()
+  code?: string;
+
+  @IsOptional()
+  @IsString()
   address?: string;
 
   @IsOptional()
-  @IsNumber()
-  available_chargers?: number;
+  @IsString()
+  manager_name?: string;
 
   @IsOptional()
-  @IsEnum(ChargingStationStatus)
-  status?: ChargingStationStatus;
+  @IsString()
+  manager_phone?: string;
 
   @IsOptional()
   @IsNumber()
-  price_per_kwh?: number;
+  total_parking_slots?: number;
+
+  @IsOptional()
+  @IsNumber()
+  total_charging_ports?: number;
+
+  @IsOptional()
+  @IsObject()
+  operating_hours?: object;
 
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
 }
 
+// =============================================
+// CHARGING PORT DTOs (TRỤ SẠC)
+// =============================================
+
+export enum ChargingPortStatus {
+  AVAILABLE = 'available',
+  IN_USE = 'in_use',
+  MAINTENANCE = 'maintenance',
+  OFFLINE = 'offline',
+}
+
+export class CreateChargingPortDto {
+  @IsString()
+  depot_id: string;
+
+  @IsNumber()
+  port_number: number;
+
+  @IsOptional()
+  @IsString()
+  port_code?: string;
+
+  @IsOptional()
+  @IsNumber()
+  charger_power?: number;
+
+  @IsOptional()
+  @IsString()
+  charger_type?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UpdateChargingPortDto {
+  @IsOptional()
+  @IsNumber()
+  port_number?: number;
+
+  @IsOptional()
+  @IsString()
+  port_code?: string;
+
+  @IsOptional()
+  @IsNumber()
+  charger_power?: number;
+
+  @IsOptional()
+  @IsString()
+  charger_type?: string;
+
+  @IsOptional()
+  @IsEnum(ChargingPortStatus)
+  status?: ChargingPortStatus;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
+}
+
+// =============================================
+// CHARGING SESSION DTOs (PHIÊN SẠC)
+// =============================================
+
 export class StartChargingSessionDto {
   @IsString()
   vehicle_id: string;
 
   @IsString()
-  driver_id: string;
+  depot_id: string;
 
   @IsString()
-  charging_station_id: string;
+  charging_port_id: string;
 
   @IsOptional()
   @IsNumber()
@@ -95,8 +179,4 @@ export class EndChargingSessionDto {
   @IsOptional()
   @IsNumber()
   energy_consumed?: number;
-
-  @IsOptional()
-  @IsNumber()
-  total_cost?: number;
 }

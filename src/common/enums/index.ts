@@ -28,9 +28,9 @@ export enum OrderStatus {
   CANCELLED = 'cancelled',
 }
 
-export enum ChargingStationStatus {
+export enum ChargingPortStatus {
   AVAILABLE = 'available',
-  OCCUPIED = 'occupied',
+  IN_USE = 'in_use',
   MAINTENANCE = 'maintenance',
   OFFLINE = 'offline',
 }

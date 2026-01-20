@@ -9,14 +9,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { DriversService } from './entities.service';
+import { DriversService } from './drivers.service';
 import { AuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { UserRole } from '../../common/enums';
 
-// ...existing code...
-
-// Drivers Controller
 @Controller('drivers')
 @UseGuards(AuthGuard)
 export class DriversController {
@@ -28,6 +25,7 @@ export class DriversController {
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Query('status') status?: string,
     @Query('is_available') is_available?: boolean,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
@@ -35,6 +33,7 @@ export class DriversController {
     return this.driversService.findAll({
       page,
       limit,
+      status,
       is_available,
       sortBy,
       sortOrder,
@@ -42,22 +41,21 @@ export class DriversController {
   }
 
   @Get('available')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
   async getAvailableDrivers() {
     return this.driversService.getAvailableDrivers();
   }
 
   @Get('nearby')
-  async findNearbyDrivers(
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getNearbyDrivers(
     @Query('lat') lat: number,
     @Query('lng') lng: number,
     @Query('radius') radius?: number,
   ) {
-    return this.driversService.findNearbyDrivers(lat, lng, radius || 10);
-  }
-
-  @Get('me')
-  async getMyProfile(@CurrentUser() user: any) {
-    return this.driversService.findByUserId(user.id);
+    return this.driversService.getNearbyDrivers(lat, lng, radius);
   }
 
   @Get(':id')
@@ -68,36 +66,15 @@ export class DriversController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async create(@Body() data: any) {
-    return this.driversService.create(data);
+  async create(@Body() createDriverDto: any) {
+    return this.driversService.create(createDriverDto);
   }
 
   @Put(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.DRIVER)
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.driversService.update(id, data);
-  }
-
-  @Put(':id/location')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.DRIVER)
-  async updateLocation(
-    @Param('id') id: string,
-    @Body('lat') lat: number,
-    @Body('lng') lng: number,
-  ) {
-    return this.driversService.updateLocation(id, lat, lng);
-  }
-
-  @Put(':id/availability')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.DRIVER, UserRole.ADMIN)
-  async updateAvailability(
-    @Param('id') id: string,
-    @Body('is_available') isAvailable: boolean,
-  ) {
-    return this.driversService.updateAvailability(id, isAvailable);
+  @Roles(UserRole.ADMIN)
+  async update(@Param('id') id: string, @Body() updateDriverDto: any) {
+    return this.driversService.update(id, updateDriverDto);
   }
 
   @Delete(':id')
@@ -105,5 +82,25 @@ export class DriversController {
   @Roles(UserRole.ADMIN)
   async delete(@Param('id') id: string) {
     return this.driversService.delete(id);
+  }
+
+  @Put(':id/location')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async updateLocation(
+    @Param('id') id: string,
+    @Body() data: { lat: number; lng: number },
+  ) {
+    return this.driversService.updateLocation(id, data.lat, data.lng);
+  }
+
+  @Put(':id/availability')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.DRIVER)
+  async updateAvailability(
+    @Param('id') id: string,
+    @Body() data: { is_available: boolean },
+  ) {
+    return this.driversService.updateAvailability(id, data.is_available);
   }
 }
