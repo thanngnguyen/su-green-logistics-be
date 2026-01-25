@@ -39,10 +39,28 @@ export class PartnersController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    // Filter out undefined, empty strings, and 'all' values
+    const cleanStatus =
+      contract_status &&
+      contract_status !== '' &&
+      contract_status !== 'undefined' &&
+      contract_status !== 'all'
+        ? contract_status
+        : undefined;
+    const cleanPartnerType =
+      partner_type &&
+      partner_type !== '' &&
+      partner_type !== 'undefined' &&
+      partner_type !== 'all'
+        ? partner_type
+        : undefined;
+    const cleanSearch =
+      search && search !== '' && search !== 'undefined' ? search : undefined;
+
     return this.partnersService.findAll({
-      contract_status,
-      partner_type,
-      search,
+      contract_status: cleanStatus,
+      partner_type: cleanPartnerType,
+      search: cleanSearch,
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
     });

@@ -18,6 +18,10 @@ export class CreatePartnerDto {
 
   @IsOptional()
   @IsString()
+  business_license?: string;
+
+  @IsOptional()
+  @IsString()
   category?: string;
 
   @IsOptional()

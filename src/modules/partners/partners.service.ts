@@ -57,30 +57,51 @@ export class PartnersService {
     search?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ data: Partner[]; total: number }> {
+  }): Promise<{
+    data: Partner[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const filter: Record<string, any> = {};
 
-    if (options?.contract_status) {
+    // Only add filter if value exists, is not empty, and is not 'undefined' or 'all'
+    if (
+      options?.contract_status &&
+      options.contract_status !== '' &&
+      options.contract_status !== 'undefined' &&
+      options.contract_status !== 'all'
+    ) {
       filter.contract_status = options.contract_status;
     }
-    if (options?.partner_type) {
+    if (
+      options?.partner_type &&
+      options.partner_type !== '' &&
+      options.partner_type !== 'undefined'
+    ) {
       filter.partner_type = options.partner_type;
     }
 
-    const limit = options?.limit;
-    const offset =
-      options?.page && limit ? (options.page - 1) * limit : undefined;
+    const page = options?.page || 1;
+    const limit = options?.limit || 10;
+    const offset = (page - 1) * limit;
 
-    const partners = await this.supabaseService.findAll<Partner>('partners', {
-      filter,
-      orderBy: { column: 'company_name', ascending: true },
-      limit,
-      offset,
-    });
+    const [partners, total] = await Promise.all([
+      this.supabaseService.findAll<Partner>('partners', {
+        filter,
+        orderBy: { column: 'company_name', ascending: true },
+        limit,
+        offset,
+      }),
+      this.supabaseService.count('partners', filter),
+    ]);
 
     return {
       data: partners,
-      total: partners.length,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 

@@ -89,23 +89,32 @@ export class SupabaseService implements OnModuleInit {
     return data as T;
   }
 
-  async create<T>(table: string, data: Partial<T>): Promise<T> {
+  async create<T>(
+    table: string,
+    data: Partial<T>,
+    select?: string,
+  ): Promise<T> {
     const { data: result, error } = await this.supabaseAdmin
       .from(table)
       .insert(data)
-      .select()
+      .select(select || '*')
       .single();
 
     if (error) throw error;
     return result as T;
   }
 
-  async update<T>(table: string, id: string, data: Partial<T>): Promise<T> {
+  async update<T>(
+    table: string,
+    id: string,
+    data: Partial<T>,
+    select?: string,
+  ): Promise<T> {
     const { data: result, error } = await this.supabaseAdmin
       .from(table)
       .update(data)
       .eq('id', id)
-      .select()
+      .select(select || '*')
       .single();
 
     if (error) throw error;

@@ -71,33 +71,51 @@ export class PartnerRequestsService {
     partner_type?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ data: PartnerRequest[]; total: number }> {
+  }): Promise<{
+    data: PartnerRequest[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const filter: Record<string, any> = {};
 
-    if (options?.status) {
+    // Only add filter if value exists, is not empty string, and is not 'undefined'
+    if (
+      options?.status &&
+      options.status !== '' &&
+      options.status !== 'undefined' &&
+      options.status !== 'all'
+    ) {
       filter.status = options.status;
     }
-    if (options?.partner_type) {
+    if (
+      options?.partner_type &&
+      options.partner_type !== '' &&
+      options.partner_type !== 'undefined'
+    ) {
       filter.partner_type = options.partner_type;
     }
 
     const page = options?.page || 1;
-    const limit = options?.limit;
-    const offset = limit ? (page - 1) * limit : undefined;
+    const limit = options?.limit || 10;
+    const offset = (page - 1) * limit;
 
-    const requests = await this.supabaseService.findAll<PartnerRequest>(
-      'partner_requests',
-      {
+    const [requests, total] = await Promise.all([
+      this.supabaseService.findAll<PartnerRequest>('partner_requests', {
         filter,
         orderBy: { column: 'created_at', ascending: false },
         limit,
         offset,
-      },
-    );
+      }),
+      this.supabaseService.count('partner_requests', filter),
+    ]);
 
     return {
       data: requests,
-      total: requests.length,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 

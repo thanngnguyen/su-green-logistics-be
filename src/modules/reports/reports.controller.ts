@@ -32,12 +32,32 @@ export class ReportsController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
+    // Filter out undefined, empty strings, and 'all' values
+    const cleanStatus =
+      status && status !== '' && status !== 'undefined' && status !== 'all'
+        ? status
+        : undefined;
+    const cleanReportType =
+      report_type &&
+      report_type !== '' &&
+      report_type !== 'undefined' &&
+      report_type !== 'all'
+        ? report_type
+        : undefined;
+    const cleanPriority =
+      priority &&
+      priority !== '' &&
+      priority !== 'undefined' &&
+      priority !== 'all'
+        ? priority
+        : undefined;
+
     return this.reportsService.findAll({
       page,
       limit,
-      status,
-      report_type,
-      priority,
+      status: cleanStatus,
+      report_type: cleanReportType,
+      priority: cleanPriority,
       sortBy,
       sortOrder,
     });

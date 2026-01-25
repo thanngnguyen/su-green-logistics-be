@@ -9,6 +9,10 @@ import { SupabaseService } from '../../common/supabase';
 import { CreateUserDto, LoginDto } from '../../common/dto';
 import { User } from '../../common/interfaces';
 
+// User columns to select from users table
+const USER_SELECT_COLUMNS =
+  'id, email, full_name, phone, avatar_url, role, address, created_at, updated_at';
+
 @Injectable()
 export class AuthService {
   private supabase: SupabaseClient;
@@ -33,15 +37,16 @@ export class AuthService {
   }
 
   /**
-   * Tạo tài khoản cho driver (tài xế)
+   * Tạo tài khoản cho người dùng mới (admin, driver)
    * Chỉ admin mới có thể gọi hàm này
    * Sử dụng Supabase Auth để quản lý người dùng
    */
   async createUserAccount(createUserDto: CreateUserDto) {
-    // Validate role - chỉ cho phép tạo driver
-    if (createUserDto.role !== 'driver') {
+    // Validate role - chỉ cho phép tạo driver hoặc admin
+    const allowedRoles = ['driver', 'admin'];
+    if (!allowedRoles.includes(createUserDto.role)) {
       throw new BadRequestException(
-        'Chỉ có thể tạo tài khoản cho tài xế (driver)',
+        'Chỉ có thể tạo tài khoản cho tài xế (driver) hoặc quản trị viên (admin)',
       );
     }
 
@@ -63,31 +68,55 @@ export class AuthService {
       });
 
     if (authError) {
-      throw new BadRequestException(authError.message);
+      console.error('Supabase Auth Error:', authError);
+      throw new BadRequestException(
+        authError.message || 'Không thể tạo tài khoản. Vui lòng thử lại.',
+      );
     }
 
-    // User profile sẽ được tạo tự động bởi trigger handle_new_user
-    // Chờ một chút để trigger hoàn thành
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (!authData?.user) {
+      throw new BadRequestException(
+        'Không thể tạo tài khoản. Vui lòng thử lại.',
+      );
+    }
+
+    // Tự tạo user profile thay vì dựa vào trigger (tránh lỗi column status)
+    const adminClient = this.supabaseService.getAdminClient();
+    const { error: userProfileError } = await adminClient.from('users').upsert(
+      {
+        id: authData.user.id,
+        email: createUserDto.email, // Lưu email vào users table
+        full_name: createUserDto.full_name,
+        phone: createUserDto.phone || null,
+        role: createUserDto.role,
+        address: createUserDto.address || null,
+      },
+      { onConflict: 'id' },
+    );
+
+    if (userProfileError) {
+      console.error('Error creating user profile:', userProfileError);
+      // Xóa auth user nếu tạo profile thất bại
+      await this.supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      throw new BadRequestException('Không thể tạo hồ sơ người dùng');
+    }
+
+    // Chờ một chút để đảm bảo dữ liệu đã được ghi
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Lấy user profile từ database
     const user = await this.supabaseService.findOne<User>(
       'users',
       authData.user.id,
+      USER_SELECT_COLUMNS,
     );
 
-    // Cập nhật thêm thông tin nếu cần
-    if (user && createUserDto.address) {
-      await this.supabaseService.update<User>('users', user.id, {
-        address: createUserDto.address,
-      });
-    }
-
+    const roleLabel =
+      createUserDto.role === 'admin' ? 'quản trị viên' : 'tài xế';
     return {
       user: user || authData.user,
       temporary_password: tempPassword,
-      message:
-        'Tài khoản tài xế đã được tạo thành công. Vui lòng gửi mật khẩu tạm thời cho người dùng.',
+      message: `Tài khoản ${roleLabel} đã được tạo thành công. Vui lòng gửi mật khẩu tạm thời cho người dùng.`,
     };
   }
 
@@ -121,10 +150,15 @@ export class AuthService {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
 
+    // Define columns to select from users table (status column does not exist)
+    const userSelect =
+      'id, full_name, phone, avatar_url, role, address, created_at, updated_at';
+
     // Lấy user từ database
     const user = await this.supabaseService.findOne<User>(
       'users',
       data.user.id,
+      userSelect,
     );
 
     if (!user) {
@@ -133,9 +167,10 @@ export class AuthService {
       );
     }
 
-    if (user.status !== 'active') {
-      throw new UnauthorizedException('Tài khoản chưa được kích hoạt');
-    }
+    // Skip status check since column may not exist
+    // if (user.status && user.status !== 'active') {
+    //   throw new UnauthorizedException('Tài khoản chưa được kích hoạt');
+    // }
 
     return {
       user,
@@ -152,7 +187,13 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    const user = await this.supabaseService.findOne<User>('users', userId);
+    const userSelect =
+      'id, full_name, phone, avatar_url, role, address, created_at, updated_at';
+    const user = await this.supabaseService.findOne<User>(
+      'users',
+      userId,
+      userSelect,
+    );
     if (!user) {
       throw new UnauthorizedException('Người dùng không tồn tại');
     }

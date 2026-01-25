@@ -3,6 +3,10 @@ import { SupabaseService } from '../../common/supabase';
 import { Driver } from '../../common/interfaces';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces';
 
+// Define user columns to select from users table
+const USER_COLUMNS =
+  'id, email, full_name, phone, avatar_url, role, address, created_at, updated_at';
+
 @Injectable()
 export class DriversService {
   constructor(private supabaseService: SupabaseService) {}
@@ -20,7 +24,7 @@ export class DriversService {
 
     const [drivers, total] = await Promise.all([
       this.supabaseService.findAll<Driver>('drivers', {
-        select: '*, user:users(*)',
+        select: `*, user:users(${USER_COLUMNS})`,
         filter,
         orderBy: {
           column: params?.sortBy || 'created_at',
@@ -47,7 +51,7 @@ export class DriversService {
     const driver = await this.supabaseService.findOne<Driver>(
       'drivers',
       id,
-      '*, user:users(*)',
+      `*, user:users(${USER_COLUMNS})`,
     );
     if (!driver) {
       throw new NotFoundException('Driver not found');
@@ -58,7 +62,7 @@ export class DriversService {
   async findByUserId(userId: string): Promise<Driver | null> {
     const drivers = await this.supabaseService.findAll<Driver>('drivers', {
       filter: { user_id: userId },
-      select: '*, user:users(*)',
+      select: `*, user:users(${USER_COLUMNS})`,
     });
     return drivers[0] || null;
   }
@@ -91,7 +95,7 @@ export class DriversService {
   async getAvailableDrivers(): Promise<Driver[]> {
     return this.supabaseService.findAll<Driver>('drivers', {
       filter: { is_available: true },
-      select: '*, user:users(*)',
+      select: `*, user:users(${USER_COLUMNS})`,
     });
   }
 

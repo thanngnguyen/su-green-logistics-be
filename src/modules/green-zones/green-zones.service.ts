@@ -22,7 +22,10 @@ export class GreenZonesService {
     const offset = (page - 1) * limit;
 
     const filter: Record<string, any> = {};
-    if (params?.is_active !== undefined) filter.is_active = params.is_active;
+    // Only add is_active filter if it's explicitly true or false (not undefined or string 'undefined')
+    if (params?.is_active === true || params?.is_active === false) {
+      filter.is_active = params.is_active;
+    }
 
     const [zones, total] = await Promise.all([
       this.supabaseService.findAll<GreenZone>('green_zones', {

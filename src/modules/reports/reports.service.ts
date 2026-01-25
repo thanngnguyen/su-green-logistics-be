@@ -4,6 +4,10 @@ import { CreateReportDto, UpdateReportDto } from '../../common/dto';
 import { Report } from '../../common/interfaces';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces';
 
+// User columns to select from users table
+const USER_COLUMNS =
+  'id, email, full_name, phone, avatar_url, role, address, created_at, updated_at';
+
 @Injectable()
 export class ReportsService {
   constructor(private supabaseService: SupabaseService) {}
@@ -21,14 +25,40 @@ export class ReportsService {
     const offset = (page - 1) * limit;
 
     const filter: Record<string, any> = {};
-    if (params?.status) filter.status = params.status;
-    if (params?.report_type) filter.report_type = params.report_type;
-    if (params?.reporter_id) filter.reporter_id = params.reporter_id;
-    if (params?.priority) filter.priority = params.priority;
+    // Only add filter if value exists, is not empty, and is not 'undefined' or 'all'
+    if (
+      params?.status &&
+      params.status !== '' &&
+      params.status !== 'undefined' &&
+      params.status !== 'all'
+    ) {
+      filter.status = params.status;
+    }
+    if (
+      params?.report_type &&
+      params.report_type !== '' &&
+      params.report_type !== 'undefined'
+    ) {
+      filter.report_type = params.report_type;
+    }
+    if (
+      params?.reporter_id &&
+      params.reporter_id !== '' &&
+      params.reporter_id !== 'undefined'
+    ) {
+      filter.reporter_id = params.reporter_id;
+    }
+    if (
+      params?.priority &&
+      params.priority !== '' &&
+      params.priority !== 'undefined'
+    ) {
+      filter.priority = params.priority;
+    }
 
     const [reports, total] = await Promise.all([
       this.supabaseService.findAll<Report>('reports', {
-        select: '*, reporter:users(*), order:orders(*), vehicle:vehicles(*)',
+        select: `*, reporter:users!reports_reporter_id_fkey(${USER_COLUMNS}), resolver:users!reports_resolved_by_fkey(${USER_COLUMNS}), order:orders(*), vehicle:vehicles(*)`,
         filter,
         orderBy: { column: params?.sortBy || 'created_at', ascending: false },
         limit,
@@ -52,7 +82,7 @@ export class ReportsService {
     const report = await this.supabaseService.findOne<Report>(
       'reports',
       id,
-      '*, reporter:users(*), order:orders(*), vehicle:vehicles(*)',
+      `*, reporter:users!reports_reporter_id_fkey(${USER_COLUMNS}), resolver:users!reports_resolved_by_fkey(${USER_COLUMNS}), order:orders(*), vehicle:vehicles(*)`,
     );
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -93,7 +123,7 @@ export class ReportsService {
   async getPendingReports(): Promise<Report[]> {
     return this.supabaseService.findAll<Report>('reports', {
       filter: { status: 'pending' },
-      select: '*, reporter:users(*), order:orders(*), vehicle:vehicles(*)',
+      select: `*, reporter:users!reports_reporter_id_fkey(${USER_COLUMNS}), resolver:users!reports_resolved_by_fkey(${USER_COLUMNS}), order:orders(*), vehicle:vehicles(*)`,
       orderBy: { column: 'created_at', ascending: true },
     });
   }
@@ -101,7 +131,7 @@ export class ReportsService {
   async getUrgentReports(): Promise<Report[]> {
     return this.supabaseService.findAll<Report>('reports', {
       filter: { priority: 'urgent', status: 'pending' },
-      select: '*, reporter:users(*), order:orders(*), vehicle:vehicles(*)',
+      select: `*, reporter:users!reports_reporter_id_fkey(${USER_COLUMNS}), resolver:users!reports_resolved_by_fkey(${USER_COLUMNS}), order:orders(*), vehicle:vehicles(*)`,
       orderBy: { column: 'created_at', ascending: true },
     });
   }

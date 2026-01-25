@@ -30,14 +30,22 @@ export class GreenZonesController {
   async findAllGreenZones(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('is_active') is_active?: boolean,
+    @Query('is_active') is_active?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
+    // Convert is_active string to boolean
+    let isActiveBool: boolean | undefined;
+    if (is_active === 'true') {
+      isActiveBool = true;
+    } else if (is_active === 'false') {
+      isActiveBool = false;
+    }
+
     return this.greenZonesService.findAllGreenZones({
       page,
       limit,
-      is_active,
+      is_active: isActiveBool,
       sortBy,
       sortOrder,
     });

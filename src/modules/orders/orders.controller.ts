@@ -46,11 +46,21 @@ export class OrdersController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
+    // Filter out undefined, empty strings, and 'all' values
+    const cleanStatus =
+      status && status !== '' && status !== 'undefined' && status !== 'all'
+        ? status
+        : undefined;
+    const cleanDriverId =
+      driver_id && driver_id !== '' && driver_id !== 'undefined'
+        ? driver_id
+        : undefined;
+
     return this.ordersService.findAll({
       page,
       limit,
-      status,
-      driver_id,
+      status: cleanStatus,
+      driver_id: cleanDriverId,
       sortBy,
       sortOrder,
     });

@@ -1,5 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { SupabaseService } from '../../common/supabase';
+
+// Define user columns to select from users table
+const USER_COLUMNS =
+  'id, email, full_name, phone, avatar_url, role, address, created_at, updated_at';
 
 @Injectable()
 export class DriversService {
@@ -8,7 +16,6 @@ export class DriversService {
   async findAll(params: {
     page?: number;
     limit?: number;
-    status?: string;
     is_available?: boolean;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
@@ -16,24 +23,20 @@ export class DriversService {
     const {
       page = 1,
       limit = 10,
-      status,
       is_available,
       sortBy = 'created_at',
       sortOrder = 'desc',
     } = params;
 
     const offset = (page - 1) * limit;
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     let query = client
       .from('drivers')
-      .select('*, user:users(*)', { count: 'exact' });
+      .select(`*, user:users(${USER_COLUMNS})`, { count: 'exact' });
 
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    if (is_available !== undefined) {
+    // Only filter by is_available if explicitly set (not undefined)
+    if (is_available !== undefined && is_available !== null) {
       query = query.eq('is_available', is_available);
     }
 
@@ -47,21 +50,21 @@ export class DriversService {
 
     return {
       data,
-      pagination: {
+      meta: {
+        total: count || 0,
         page,
         limit,
-        total: count || 0,
         totalPages: Math.ceil((count || 0) / limit),
       },
     };
   }
 
   async findOne(id: string) {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     const { data, error } = await client
       .from('drivers')
-      .select('*, user:users(*), vehicle:vehicles(*)')
+      .select(`*, user:users(${USER_COLUMNS}), vehicle:vehicles(*)`)
       .eq('id', id)
       .single();
 
@@ -73,12 +76,104 @@ export class DriversService {
   }
 
   async create(createDriverDto: any) {
-    const client = this.supabase.getClient();
+    const adminClient = this.supabase.getAdminClient();
 
-    const { data, error } = await client
+    // Nếu có email, tức là cần tạo user trước
+    if (createDriverDto.email) {
+      // Tạo password tạm thời
+      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+
+      // Tạo user trong Supabase Auth
+      const { data: authData, error: authError } =
+        await adminClient.auth.admin.createUser({
+          email: createDriverDto.email,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: createDriverDto.full_name,
+            phone: createDriverDto.phone,
+            role: 'driver',
+          },
+        });
+
+      if (authError) {
+        console.error('Supabase Auth Error (Driver):', authError);
+        throw new BadRequestException(
+          authError.message || 'Không thể tạo tài khoản tài xế',
+        );
+      }
+
+      if (!authData?.user) {
+        throw new BadRequestException('Không thể tạo tài khoản tài xế');
+      }
+
+      // Tự tạo user profile thay vì dựa vào trigger (tránh lỗi column status)
+      const { error: userProfileError } = await adminClient
+        .from('users')
+        .upsert(
+          {
+            id: authData.user.id,
+            email: createDriverDto.email, // Lưu email vào users table
+            full_name: createDriverDto.full_name,
+            phone: createDriverDto.phone || null,
+            role: 'driver',
+            address: createDriverDto.address || null,
+          },
+          { onConflict: 'id' },
+        );
+
+      if (userProfileError) {
+        console.error('Error creating user profile:', userProfileError);
+        // Xóa auth user nếu tạo profile thất bại
+        await adminClient.auth.admin.deleteUser(authData.user.id);
+        throw new BadRequestException('Không thể tạo hồ sơ người dùng');
+      }
+
+      // Chờ một chút để đảm bảo dữ liệu đã được ghi
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Tạo driver profile với user_id
+      const driverData = {
+        user_id: authData.user.id,
+        license_number: createDriverDto.license_number || 'PENDING',
+        license_expiry:
+          createDriverDto.license_expiry ||
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0],
+        id_card_number: createDriverDto.id_card_number || 'PENDING',
+        date_of_birth: createDriverDto.date_of_birth || null,
+        emergency_contact: createDriverDto.emergency_contact || null,
+        emergency_phone: createDriverDto.emergency_phone || null,
+        is_available: true,
+      };
+
+      const { data, error } = await adminClient
+        .from('drivers')
+        .insert(driverData)
+        .select(`*, user:users(${USER_COLUMNS})`)
+        .single();
+
+      if (error) {
+        console.error('Error creating driver profile:', error);
+        // Nếu tạo driver thất bại, xóa user đã tạo
+        await adminClient.auth.admin.deleteUser(authData.user.id);
+        throw new BadRequestException(error.message);
+      }
+
+      return {
+        ...data,
+        temporary_password: tempPassword,
+        message:
+          'Tài xế đã được tạo thành công. Mật khẩu tạm thời: ' + tempPassword,
+      };
+    }
+
+    // Nếu có user_id, tạo driver profile trực tiếp
+    const { data, error } = await adminClient
       .from('drivers')
       .insert(createDriverDto)
-      .select()
+      .select(`*, user:users(${USER_COLUMNS})`)
       .single();
 
     if (error) {
@@ -89,13 +184,13 @@ export class DriversService {
   }
 
   async update(id: string, updateDriverDto: any) {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     const { data, error } = await client
       .from('drivers')
       .update(updateDriverDto)
       .eq('id', id)
-      .select()
+      .select(`*, user:users(${USER_COLUMNS})`)
       .single();
 
     if (error) {
@@ -106,7 +201,7 @@ export class DriversService {
   }
 
   async delete(id: string) {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     const { error } = await client.from('drivers').delete().eq('id', id);
 
@@ -118,13 +213,12 @@ export class DriversService {
   }
 
   async getAvailableDrivers() {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     const { data, error } = await client
       .from('drivers')
-      .select('*, user:users(*)')
-      .eq('is_available', true)
-      .eq('status', 'active');
+      .select(`*, user:users(${USER_COLUMNS})`)
+      .eq('is_available', true);
 
     if (error) {
       throw new Error(error.message);
@@ -134,15 +228,14 @@ export class DriversService {
   }
 
   async getNearbyDrivers(lat: number, lng: number, radius: number = 10) {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     // Simple distance calculation using Haversine formula
     // For production, use PostGIS or a proper geospatial query
     const { data, error } = await client
       .from('drivers')
-      .select('*, user:users(*)')
+      .select(`*, user:users(${USER_COLUMNS})`)
       .eq('is_available', true)
-      .eq('status', 'active')
       .not('current_lat', 'is', null)
       .not('current_lng', 'is', null);
 
@@ -165,17 +258,17 @@ export class DriversService {
   }
 
   async updateLocation(id: string, lat: number, lng: number) {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     const { data, error } = await client
       .from('drivers')
       .update({
         current_lat: lat,
         current_lng: lng,
-        last_location_update: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select()
+      .select(`*, user:users(${USER_COLUMNS})`)
       .single();
 
     if (error) {
@@ -186,13 +279,13 @@ export class DriversService {
   }
 
   async updateAvailability(id: string, isAvailable: boolean) {
-    const client = this.supabase.getClient();
+    const client = this.supabase.getAdminClient();
 
     const { data, error } = await client
       .from('drivers')
       .update({ is_available: isAvailable })
       .eq('id', id)
-      .select()
+      .select(`*, user:users(${USER_COLUMNS})`)
       .single();
 
     if (error) {

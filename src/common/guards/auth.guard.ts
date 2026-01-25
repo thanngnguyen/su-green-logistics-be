@@ -22,23 +22,52 @@ export class AuthGuard implements CanActivate {
     const token = authHeader.replace('Bearer ', '');
 
     try {
-      const supabase = createClient(
+      // Use anon key for token verification
+      const supabaseAuth = createClient(
         this.configService.get<string>('supabase.url') || '',
         this.configService.get<string>('supabase.anonKey') || '',
       );
 
       const {
-        data: { user },
+        data: { user: authUser },
         error,
-      } = await supabase.auth.getUser(token);
+      } = await supabaseAuth.auth.getUser(token);
 
-      if (error || !user) {
+      if (error || !authUser) {
         throw new UnauthorizedException('Invalid token');
       }
 
-      request.user = user;
+      // Use service role key to query database (bypass RLS)
+      const supabaseAdmin = createClient(
+        this.configService.get<string>('supabase.url') || '',
+        this.configService.get<string>('supabase.serviceRoleKey') || '',
+      );
+
+      // Get full user profile from database including role
+      const { data: userProfile, error: profileError } = await supabaseAdmin
+        .from('users')
+        .select(
+          'id, full_name, phone, avatar_url, role, address, created_at, updated_at',
+        )
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        throw new UnauthorizedException('User profile not found');
+      }
+
+      // Merge auth user with profile data
+      request.user = {
+        ...authUser,
+        ...userProfile,
+        email: authUser.email,
+      };
+
       return true;
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid token');
     }
   }

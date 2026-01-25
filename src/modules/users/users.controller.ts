@@ -30,11 +30,21 @@ export class UsersController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
+    // Filter out undefined, empty strings, and 'all' values
+    const cleanRole =
+      role && role !== '' && role !== 'undefined' && role !== 'all'
+        ? role
+        : undefined;
+    const cleanStatus =
+      status && status !== '' && status !== 'undefined' && status !== 'all'
+        ? status
+        : undefined;
+
     return this.usersService.findAll({
       page,
       limit,
-      role,
-      status,
+      role: cleanRole,
+      status: cleanStatus,
       sortBy,
       sortOrder,
     });

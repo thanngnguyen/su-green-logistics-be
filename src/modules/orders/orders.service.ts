@@ -27,9 +27,28 @@ export class OrdersService {
     const offset = (page - 1) * limit;
 
     const filter: Record<string, any> = {};
-    if (params?.status) filter.status = params.status;
-    if (params?.partner_id) filter.partner_id = params.partner_id;
-    if (params?.driver_id) filter.driver_id = params.driver_id;
+    // Only add filter if value exists, is not empty string, and is not 'undefined'
+    if (
+      params?.status &&
+      params.status !== '' &&
+      params.status !== 'undefined'
+    ) {
+      filter.status = params.status;
+    }
+    if (
+      params?.partner_id &&
+      params.partner_id !== '' &&
+      params.partner_id !== 'undefined'
+    ) {
+      filter.partner_id = params.partner_id;
+    }
+    if (
+      params?.driver_id &&
+      params.driver_id !== '' &&
+      params.driver_id !== 'undefined'
+    ) {
+      filter.driver_id = params.driver_id;
+    }
 
     const [orders, total] = await Promise.all([
       this.supabaseService.findAll<Order>('orders', {

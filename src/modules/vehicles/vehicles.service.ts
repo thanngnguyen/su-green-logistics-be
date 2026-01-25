@@ -8,6 +8,10 @@ import {
 import { Vehicle } from '../../common/interfaces';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces';
 
+// Define user columns to select from users table
+const USER_COLUMNS =
+  'id, email, full_name, phone, avatar_url, role, address, created_at, updated_at';
+
 @Injectable()
 export class VehiclesService {
   constructor(private supabaseService: SupabaseService) {}
@@ -20,12 +24,17 @@ export class VehiclesService {
     const offset = (page - 1) * limit;
 
     const filter: Record<string, any> = {};
-    if (params?.status) filter.status = params.status;
-    if (params?.driver_id) filter.driver_id = params.driver_id;
+    // Only add filter if value exists and is not empty string
+    if (params?.status && params.status !== 'undefined') {
+      filter.status = params.status;
+    }
+    if (params?.driver_id && params.driver_id !== 'undefined') {
+      filter.driver_id = params.driver_id;
+    }
 
     const [vehicles, total] = await Promise.all([
       this.supabaseService.findAll<Vehicle>('vehicles', {
-        select: '*, driver:drivers(*, user:users(*))',
+        select: `*, driver:drivers(*, user:users(${USER_COLUMNS}))`,
         filter,
         orderBy: {
           column: params?.sortBy || 'created_at',
@@ -52,7 +61,7 @@ export class VehiclesService {
     const vehicle = await this.supabaseService.findOne<Vehicle>(
       'vehicles',
       id,
-      '*, driver:drivers(*, user:users(*))',
+      `*, driver:drivers(*, user:users(${USER_COLUMNS}))`,
     );
     if (!vehicle) {
       throw new NotFoundException('Vehicle not found');
@@ -130,7 +139,7 @@ export class VehiclesService {
   async getAvailableVehicles(): Promise<Vehicle[]> {
     return this.supabaseService.findAll<Vehicle>('vehicles', {
       filter: { status: 'available' },
-      select: '*, driver:drivers(*, user:users(*))',
+      select: `*, driver:drivers(*, user:users(${USER_COLUMNS}))`,
     });
   }
 

@@ -25,16 +25,22 @@ export class DriversController {
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Query('status') status?: string,
-    @Query('is_available') is_available?: boolean,
+    @Query('is_available') is_available?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
+    // Convert is_available string to boolean
+    let isAvailableBool: boolean | undefined;
+    if (is_available === 'true') {
+      isAvailableBool = true;
+    } else if (is_available === 'false') {
+      isAvailableBool = false;
+    }
+
     return this.driversService.findAll({
       page,
       limit,
-      status,
-      is_available,
+      is_available: isAvailableBool,
       sortBy,
       sortOrder,
     });
