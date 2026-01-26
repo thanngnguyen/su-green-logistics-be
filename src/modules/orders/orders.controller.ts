@@ -15,6 +15,9 @@ import {
   UpdateOrderDto,
   UpdateOrderStatusDto,
   AssignDriverDto,
+  AssignMultipleDriversDto,
+  DriverAcceptOrderDto,
+  CompleteOrderDto,
 } from '../../common/dto';
 import { AuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
@@ -25,6 +28,7 @@ import { UserRole } from '../../common/enums';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  // ========== ADMIN: Tạo đơn hàng ==========
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -35,6 +39,7 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto, user.id);
   }
 
+  // ========== ADMIN: Danh sách đơn hàng ==========
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -46,7 +51,6 @@ export class OrdersController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    // Filter out undefined, empty strings, and 'all' values
     const cleanStatus =
       status && status !== '' && status !== 'undefined' && status !== 'all'
         ? status
@@ -66,6 +70,8 @@ export class OrdersController {
     });
   }
 
+  // ========== STATIC ROUTES (phải đặt trước :id) ==========
+
   @Get('pending')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.DRIVER)
@@ -79,23 +85,81 @@ export class OrdersController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    // Only driver role supported now
     return this.ordersService.getOrdersByDriver(user.driver_id, {
       page,
       limit,
     });
   }
 
-  @Get(':id')
+  /**
+   * DRIVER: Lấy danh sách đơn hàng được phân công (chờ nhận)
+   */
+  @Get('driver/assigned')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async getAssignedOrders(@CurrentUser() user: any) {
+    return this.ordersService.getAssignedOrders(user.driver_id);
+  }
+
+  /**
+   * DRIVER: Lấy danh sách đơn hàng đang giao
+   */
+  @Get('driver/active')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async getActiveOrders(@CurrentUser() user: any) {
+    return this.ordersService.getActiveOrders(user.driver_id);
+  }
+
+  /**
+   * DRIVER: Lấy lịch sử đơn hàng đã hoàn thành
+   */
+  @Get('driver/completed')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async getCompletedOrders(
+    @CurrentUser() user: any,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.ordersService.getCompletedOrders(user.driver_id, {
+      page,
+      limit,
+    });
+  }
+
+  /**
+   * DRIVER: Lấy thống kê KPI của mình
+   */
+  @Get('my-kpi')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async getMyKpi(@CurrentUser() user: any) {
+    return this.ordersService.getDriverKpi(user.driver_id);
+  }
+
+  /**
+   * ADMIN: Xem thống kê KPI của tất cả tài xế
+   */
+  @Get('admin/drivers-kpi')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(id);
+  async getDriversKpiSummary(@Query('date') date?: string) {
+    return this.ordersService.getDriversKpiSummary(date);
   }
 
   @Get('code/:code')
   async findByCode(@Param('code') code: string) {
     return this.ordersService.findByCode(code);
+  }
+
+  // ========== DYNAMIC ROUTES (với :id) ==========
+
+  @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async findOne(@Param('id') id: string) {
+    return this.ordersService.findOne(id);
   }
 
   @Get(':id/tracking')
@@ -121,6 +185,47 @@ export class OrdersController {
     @Body() assignDriverDto: AssignDriverDto,
   ) {
     return this.ordersService.assignDriver(id, assignDriverDto);
+  }
+
+  /**
+   * ADMIN: Phân công đơn hàng cho nhiều tài xế
+   */
+  @Put(':id/assign-multiple')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async assignMultipleDrivers(
+    @Param('id') id: string,
+    @Body() dto: AssignMultipleDriversDto,
+  ) {
+    return this.ordersService.assignMultipleDrivers(id, dto);
+  }
+
+  /**
+   * DRIVER: Nhận hoặc từ chối đơn hàng được phân công
+   */
+  @Put(':id/respond')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async respondToOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: DriverAcceptOrderDto,
+  ) {
+    return this.ordersService.driverRespondToOrder(id, user.driver_id, dto);
+  }
+
+  /**
+   * DRIVER: Hoàn thành đơn hàng (check-in giao hàng xong)
+   */
+  @Put(':id/complete')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER)
+  async completeOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: CompleteOrderDto,
+  ) {
+    return this.ordersService.completeOrder(id, user.driver_id, dto);
   }
 
   @Put(':id/status')
@@ -183,26 +288,6 @@ export class OrdersController {
       'delivery',
       checkinData,
     );
-  }
-
-  /**
-   * DRIVER: Lấy thống kê KPI của mình
-   */
-  @Get('my-kpi')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.DRIVER)
-  async getMyKpi(@CurrentUser() user: any) {
-    return this.ordersService.getDriverKpi(user.driver_id);
-  }
-
-  /**
-   * ADMIN: Xem thống kê KPI của tất cả tài xế
-   */
-  @Get('admin/drivers-kpi')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async getDriversKpiSummary(@Query('date') date?: string) {
-    return this.ordersService.getDriversKpiSummary(date);
   }
 
   @Delete(':id')

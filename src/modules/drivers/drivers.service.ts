@@ -161,8 +161,28 @@ export class DriversService {
         throw new BadRequestException(error.message);
       }
 
+      // Nếu có vehicle_id, gán xe cho tài xế
+      if (createDriverDto.vehicle_id && data) {
+        const { error: vehicleError } = await adminClient
+          .from('vehicles')
+          .update({ driver_id: data.id })
+          .eq('id', createDriverDto.vehicle_id);
+
+        if (vehicleError) {
+          console.error('Error assigning vehicle:', vehicleError);
+          // Không throw error, chỉ log - tài xế vẫn được tạo thành công
+        }
+      }
+
+      // Lấy lại data với thông tin xe
+      const { data: driverWithVehicle } = await adminClient
+        .from('drivers')
+        .select(`*, user:users(${USER_COLUMNS}), vehicle:vehicles(*)`)
+        .eq('id', data.id)
+        .single();
+
       return {
-        ...data,
+        ...(driverWithVehicle || data),
         temporary_password: tempPassword,
         message:
           'Tài xế đã được tạo thành công. Mật khẩu tạm thời: ' + tempPassword,
@@ -217,7 +237,7 @@ export class DriversService {
 
     const { data, error } = await client
       .from('drivers')
-      .select(`*, user:users(${USER_COLUMNS})`)
+      .select(`*, user:users(${USER_COLUMNS}), vehicle:vehicles(*)`)
       .eq('is_available', true);
 
     if (error) {

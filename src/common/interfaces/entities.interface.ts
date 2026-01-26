@@ -160,6 +160,18 @@ export interface Order extends BaseEntity {
   partner?: Partner;
   driver?: Driver;
   vehicle?: Vehicle;
+  assignments?: OrderAssignment[];
+}
+
+export interface OrderAssignment extends BaseEntity {
+  order_id: string;
+  driver_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  assigned_at: Date;
+  responded_at?: Date;
+  reject_reason?: string;
+  driver?: Driver;
+  order?: Order;
 }
 
 export interface OrderTracking extends BaseEntity {

@@ -94,8 +94,53 @@ export class AssignDriverDto {
   @IsString()
   driver_id: string;
 
+  @IsOptional()
   @IsString()
-  vehicle_id: string;
+  vehicle_id?: string; // Tùy chọn - nếu không có sẽ tự động lấy từ driver
+}
+
+// DTO mới cho phân công nhiều tài xế
+export class AssignMultipleDriversDto {
+  @IsArray()
+  @IsString({ each: true })
+  driver_ids: string[]; // Danh sách ID tài xế được phân công
+}
+
+// DTO cho tài xế nhận/từ chối đơn hàng
+export class DriverAcceptOrderDto {
+  @IsBoolean()
+  accept: boolean; // true = nhận, false = từ chối
+
+  @IsOptional()
+  @IsString()
+  reject_reason?: string; // Lý do từ chối (nếu từ chối)
+}
+
+// DTO cho tài xế hoàn thành đơn hàng
+export class CompleteOrderDto {
+  @IsOptional()
+  @IsString()
+  photo_url?: string; // Ảnh xác nhận giao hàng
+
+  @IsOptional()
+  @IsString()
+  signature?: string; // Chữ ký người nhận
+
+  @IsOptional()
+  @IsString()
+  receiver_name?: string; // Tên người nhận
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsOptional()
+  @IsNumber()
+  lat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  lng?: number;
 }
 
 export class UpdateOrderStatusDto {

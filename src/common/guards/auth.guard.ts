@@ -56,12 +56,28 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException('User profile not found');
       }
 
-      // Merge auth user with profile data
-      request.user = {
+      // Initialize user object with profile data
+      let userData: any = {
         ...authUser,
         ...userProfile,
         email: authUser.email,
       };
+
+      // If user is a driver, get their driver_id from drivers table
+      if (userProfile.role === 'driver') {
+        const { data: driverProfile } = await supabaseAdmin
+          .from('drivers')
+          .select('id')
+          .eq('user_id', authUser.id)
+          .single();
+
+        if (driverProfile) {
+          userData.driver_id = driverProfile.id;
+        }
+      }
+
+      // Merge auth user with profile data
+      request.user = userData;
 
       return true;
     } catch (error) {
