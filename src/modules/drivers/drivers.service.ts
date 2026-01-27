@@ -33,7 +33,10 @@ export class DriversService {
 
     let query = client
       .from('drivers')
-      .select(`*, user:users(${USER_COLUMNS})`, { count: 'exact' });
+      .select(
+        `*, user:users(${USER_COLUMNS}), vehicle:vehicles!vehicles_driver_id_fkey(*)`,
+        { count: 'exact' },
+      );
 
     // Only filter by is_available if explicitly set (not undefined)
     if (is_available !== undefined && is_available !== null) {
@@ -64,7 +67,9 @@ export class DriversService {
 
     const { data, error } = await client
       .from('drivers')
-      .select(`*, user:users(${USER_COLUMNS}), vehicle:vehicles(*)`)
+      .select(
+        `*, user:users(${USER_COLUMNS}), vehicle:vehicles!vehicles_driver_id_fkey(*)`,
+      )
       .eq('id', id)
       .single();
 
@@ -177,7 +182,9 @@ export class DriversService {
       // Lấy lại data với thông tin xe
       const { data: driverWithVehicle } = await adminClient
         .from('drivers')
-        .select(`*, user:users(${USER_COLUMNS}), vehicle:vehicles(*)`)
+        .select(
+          `*, user:users(${USER_COLUMNS}), vehicle:vehicles!vehicles_driver_id_fkey(*)`,
+        )
         .eq('id', data.id)
         .single();
 
@@ -237,7 +244,9 @@ export class DriversService {
 
     const { data, error } = await client
       .from('drivers')
-      .select(`*, user:users(${USER_COLUMNS}), vehicle:vehicles(*)`)
+      .select(
+        `*, user:users(${USER_COLUMNS}), vehicle:vehicles!vehicles_driver_id_fkey(*)`,
+      )
       .eq('is_available', true);
 
     if (error) {
